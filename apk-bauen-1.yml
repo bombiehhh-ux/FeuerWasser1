@@ -1,0 +1,53 @@
+name: APK bauen
+
+# Das Repository braucht drei Dateien im Hauptordner: index.html (Spiel), projekt.sh (App-Gerüst)
+# und diese Datei (unter .github/workflows/). Bei jedem Hochladen entsteht eine neue APK unter "Releases".
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+
+      - name: Java 17 einrichten
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: 1 - Android-Projekt erzeugen
+        run: |
+          if [ ! -f projekt.sh ]; then
+            echo "::error::Die Datei projekt.sh fehlt im Repository. Bitte hochladen."
+            exit 1
+          fi
+          bash projekt.sh
+
+      - name: 2 - APK bauen
+        run: gradle assembleDebug --no-daemon --stacktrace --console=plain
+
+      - name: 3 - APK umbenennen
+        run: cp app/build/outputs/apk/debug/app-debug.apk Feuer-Wasser.apk
+
+      - name: 4 - APK unter Releases veroeffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_id }}
+          name: Feuer & Wasser (Build ${{ github.run_number }})
+          body: Fertige App zum Installieren. Datei Feuer-Wasser.apk antippen.
+          files: Feuer-Wasser.apk
+          make_latest: true
